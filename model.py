@@ -181,7 +181,7 @@ class GWNet(nn.Module):
             x = x + residual[:, :, :, -x.size(3):]  # TODO(SS): Mean/Max Pool?
             x = self.bn[i](x)
         x = F.relu(skip)  # ignore last X?
-        x = x + self.transformer_encoder(torch.squeeze(x,-1))
+        x = x + torch.unsqueeze(self.transformer_encoder(torch.squeeze(x,-1)),-1)
         x = F.relu(self.end_conv_1(x))
         x = self.end_conv_2(x)  # downsample to (bs, seq_length, 207, nfeatures)
         return x
