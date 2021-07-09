@@ -45,7 +45,7 @@ class GWNet(nn.Module):
         self.do_graph_conv = do_graph_conv
         self.cat_feat_gc = cat_feat_gc
         self.addaptadj = addaptadj
-        self.embedding = nn.TransformerEncoderLayer(d_model=512, nhead=8)
+        self.transformer_encoder = nn.TransformerEncoderLayer(d_model=207, nhead=8)
 
 
         if self.cat_feat_gc:
@@ -181,7 +181,7 @@ class GWNet(nn.Module):
             x = x + residual[:, :, :, -x.size(3):]  # TODO(SS): Mean/Max Pool?
             x = self.bn[i](x)
         x = F.relu(skip)  # ignore last X?
-        print("X shape", x.shape)
+        x = x + self.transformer_encoder(torch.squeeze(x,-1))
         x = F.relu(self.end_conv_1(x))
         x = self.end_conv_2(x)  # downsample to (bs, seq_length, 207, nfeatures)
         return x
