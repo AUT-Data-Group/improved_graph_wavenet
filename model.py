@@ -45,7 +45,7 @@ class GWNet(nn.Module):
         self.do_graph_conv = do_graph_conv
         self.cat_feat_gc = cat_feat_gc
         self.addaptadj = addaptadj
-        self.transformer_encoder = nn.TransformerEncoderLayer(d_model=207, nhead=9)
+        self.transformer_encoder = nn.TransformerEncoderLayer(d_model=207, nhead=3)
 
 
         if self.cat_feat_gc:
