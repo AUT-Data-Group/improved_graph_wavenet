@@ -3,6 +3,168 @@ import torch.nn as nn
 from torch.nn import BatchNorm2d, Conv1d, Conv2d, ModuleList, Parameter
 import torch.nn.functional as F
 
+class SpatialAttention(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.w_1 = nn.Parameter()
+        self.w_2 = nn.Parameter()
+        self.w_3 = nn.Parameter()
+        self.b_s = nn.Parameter()
+        self.v_s = nn.Parameter()
+
+    def forward(self, x):
+        lhs = torch.mm(torch.mv(x,self.w_1), self.w_2)
+        rhs = torch.mv(self.w_3, x.T((2,0,3,1)))
+
+        product = torch.mm(lhs, rhs)
+        S = torch.mm(self.V_s, F.sigmoid(product + self.b_s)).T((1, 2, 0))).T((2, 0, 1))
+        S = S - torch.max(S, axis=1, keepdims=True)
+        exp = torch.exp(S)
+        S_normalized = exp / torch.sum(exp, axis=1, keepdims=True)
+        return S_normalized
+
+
+class cheb_conv_with_SAt(nn.Module):
+    '''
+    K-order chebyshev graph convolution with Spatial Attention scores
+    '''
+    def __init__(self, num_of_filters, K, cheb_polynomials, **kwargs):
+        '''
+        Parameters
+        ----------
+        num_of_filters: int
+
+        num_of_features: int, num of input features
+
+        K: int, up K - 1 order chebyshev polynomials
+                will be used in this convolution
+
+        '''
+        super(cheb_conv_with_SAt, self).__init__(**kwargs)
+        self.K = K
+        self.num_of_filters = num_of_filters
+        self.cheb_polynomials = cheb_polynomials
+        self.Theta = nn.Parameter((self.K, num_of_features, self.num_of_filters))
+
+    def forward(self, x, spatial_attention):
+        '''
+        Chebyshev graph convolution operation
+
+        Parameters
+        ----------
+        x: mx.ndarray, graph signal matrix
+           shape is (batch_size, N, F, T_{r-1}), F is the num of features
+
+        spatial_attention: mx.ndarray, shape is (batch_size, N, N)
+                           spatial attention scores
+
+        Returns
+        ----------
+        mx.ndarray, shape is (batch_size, N, self.num_of_filters, T_{r-1})
+
+        '''
+        (batch_size, num_of_vertices,
+         num_of_features, num_of_timesteps) = x.shape
+
+        outputs = []
+        for time_step in range(num_of_timesteps):
+            # shape is (batch_size, V, F)
+            graph_signal = x[:, :, :, time_step]
+            output = torch.zeros((batch_size, num_of_vertices,
+                                     self.num_of_filters), ctx=x.context)
+            for k in range(self.K):
+
+                # shape of T_k is (V, V)
+                T_k = self.cheb_polynomials[k]
+
+                # shape of T_k_with_at is (batch_size, V, V)
+                T_k_with_at = T_k * spatial_attention
+
+                # shape of theta_k is (F, num_of_filters)
+                theta_k = self.Theta[k]
+
+                # shape is (batch_size, V, F)
+                rhs = torch.mm(T_k_with_at.T((0, 2, 1)),
+                                   graph_signal)
+
+                output = output + nd.dot(rhs, theta_k)
+            outputs.append(output.expand_dims(-1))
+        return nd.relu(nd.concat(*outputs, dim=-1))
+
+
+class Temporal_Attention_layer(nn.Block):
+    '''
+    compute temporal attention scores
+    '''
+    def __init__(self, **kwargs):
+        super(Temporal_Attention_layer, self).__init__(**kwargs)
+        with self.name_scope():
+            self.U_1 = self.params.get('U_1', allow_deferred_init=True)
+            self.U_2 = self.params.get('U_2', allow_deferred_init=True)
+            self.U_3 = self.params.get('U_3', allow_deferred_init=True)
+            self.b_e = self.params.get('b_e', allow_deferred_init=True)
+            self.V_e = self.params.get('V_e', allow_deferred_init=True)
+
+    def forward(self, x):
+        '''
+        Parameters
+        ----------
+        x: mx.ndarray, x^{(r - 1)}_h
+                       shape is (batch_size, N, C_{r-1}, T_{r-1})
+
+        Returns
+        ----------
+        E_normalized: mx.ndarray, S', spatial attention scores
+                      shape is (batch_size, T_{r-1}, T_{r-1})
+
+        '''
+        _, num_of_vertices, num_of_features, num_of_timesteps = x.shape
+
+        # defer shape
+        self.U_1.shape = (num_of_vertices, )
+        self.U_2.shape = (num_of_features, num_of_vertices)
+        self.U_3.shape = (num_of_features, )
+        self.b_e.shape = (1, num_of_timesteps, num_of_timesteps)
+        self.V_e.shape = (num_of_timesteps, num_of_timesteps)
+        for param in [self.U_1, self.U_2, self.U_3, self.b_e, self.V_e]:
+            param._finish_deferred_init()
+
+        # compute temporal attention scores
+        # shape is (N, T, V)
+        lhs = nd.dot(nd.dot(x.transpose((0, 3, 2, 1)), self.U_1.data()),
+                     self.U_2.data())
+
+        # shape is (N, V, T)
+        rhs = nd.dot(self.U_3.data(), x.transpose((2, 0, 1, 3)))
+
+        product = nd.batch_dot(lhs, rhs)
+
+        E = nd.dot(self.V_e.data(),
+                   nd.sigmoid(product + self.b_e.data())
+                     .transpose((1, 2, 0))).transpose((2, 0, 1))
+
+        # normailzation
+        E = E - nd.max(E, axis=1, keepdims=True)
+        exp = nd.exp(E)
+        E_normalized = exp / nd.sum(exp, axis=1, keepdims=True)
+        return E_normalized
+
+
+class TemporalAttention(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self):
+        pass
+
+
+class SpatioTemporalAttention(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self):
+        pass
+
 
 def nconv(x, A):
     """Multiply x by adjacency matrix along source node axis"""
