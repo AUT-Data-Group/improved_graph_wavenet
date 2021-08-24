@@ -4,20 +4,23 @@ from torch.nn import BatchNorm2d, Conv1d, Conv2d, ModuleList, Parameter
 import torch.nn.functional as F
 
 class SpatialAttention(nn.Module):
-    def __init__(self):
+    def __init__(self, num_of_timesteps, num_of_features, num_of_vertices):
         super().__init__()
-        self.w_1 = nn.Parameter()
-        self.w_2 = nn.Parameter()
-        self.w_3 = nn.Parameter()
-        self.b_s = nn.Parameter()
-        self.v_s = nn.Parameter()
+        self.w_1 = nn.Parameter(torch.randn((num_of_timesteps, )))
+        self.w_2 = nn.Parameter(torch.randn((num_of_features, num_of_timesteps)))
+        self.w_3 = nn.Parameter(torch.randn((num_of_features, )))
+        self.b_s = nn.Parameter(torch.randn((1, num_of_vertices, num_of_vertices)))
+        self.v_s = nn.Parameter(torch.randn((num_of_vertices, num_of_vertices)))
 
     def forward(self, x):
-        lhs = torch.mm(torch.mv(x,self.w_1), self.w_2)
-        rhs = torch.mv(self.w_3, x.T((2,0,3,1)))
+        import pdb;pdb.set_trace()
+        lhs = torch.matmul(torch.matmul(x,self.w_1), self.w_2)
+        rhs = torch.matmul(self.w_3, x.permute(2,0,3,1))
 
-        product = torch.mm(lhs, rhs)
-        S = torch.mm(self.V_s, F.sigmoid(product + self.b_s)).T((1, 2, 0))).T((2, 0, 1))
+        product = torch.matmul(lhs, rhs)
+        S =torch.matmul(self.V_s,
+                  F.sigmoid(product + self.b_s)
+                     .permute(1, 2, 0)).permute(2, 0, 1)
         S = S - torch.max(S, axis=1, keepdims=True)
         exp = torch.exp(S)
         S_normalized = exp / torch.sum(exp, axis=1, keepdims=True)
@@ -28,7 +31,7 @@ class cheb_conv_with_SAt(nn.Module):
     '''
     K-order chebyshev graph convolution with Spatial Attention scores
     '''
-    def __init__(self, num_of_filters, K, cheb_polynomials, **kwargs):
+    def __init__(self, num_of_filters, K, cheb_polynomials,num_of_features, **kwargs):
         '''
         Parameters
         ----------
@@ -44,7 +47,7 @@ class cheb_conv_with_SAt(nn.Module):
         self.K = K
         self.num_of_filters = num_of_filters
         self.cheb_polynomials = cheb_polynomials
-        self.Theta = nn.Parameter((self.K, num_of_features, self.num_of_filters))
+        self.Theta = nn.Parameter(torch.randn(self.K, num_of_features, self.num_of_filters))
 
     def forward(self, x, spatial_attention):
         '''
@@ -84,12 +87,12 @@ class cheb_conv_with_SAt(nn.Module):
                 theta_k = self.Theta[k]
 
                 # shape is (batch_size, V, F)
-                rhs = torch.mm(T_k_with_at.T((0, 2, 1)),
+                rhs = torch.matmul(T_k_with_at.T((0, 2, 1)),
                                    graph_signal)
 
-                output = output + nd.dot(rhs, theta_k)
+                output = output + torch.matmul(rhs, theta_k)
             outputs.append(output.expand_dims(-1))
-        return nd.relu(nd.concat(*outputs, dim=-1))
+        return F.relu(torch.concat(*outputs, dim=-1))
 
 
 
@@ -97,14 +100,13 @@ class Temporal_Attention_layer(nn.Block):
     '''
     compute temporal attention scores
     '''
-    def __init__(self, **kwargs):
+    def __init__(self,num_of_vertices, num_of_features, num_of_timesteps, **kwargs):
         super(Temporal_Attention_layer, self).__init__(**kwargs)
-        with self.name_scope():
-            self.U_1 = self.params.get('U_1', allow_deferred_init=True)
-            self.U_2 = self.params.get('U_2', allow_deferred_init=True)
-            self.U_3 = self.params.get('U_3', allow_deferred_init=True)
-            self.b_e = self.params.get('b_e', allow_deferred_init=True)
-            self.V_e = self.params.get('V_e', allow_deferred_init=True)
+        self.U_1 = nn.Parameter(torch.randn((num_of_vertices, )))
+        self.U_2 = nn.Parameter(torch.randn((num_of_features, num_of_vertices)))
+        self.U_3 = nn.Parameter(torch.randn((num_of_features, )))
+        self.b_e = nn.Parameter(torch.randn((1, num_of_timesteps, num_of_timesteps)))
+        self.V_e = nn.Parameter(torch.randn((num_of_timesteps, num_of_timesteps)))
 
     def forward(self, x):
         '''
@@ -121,33 +123,25 @@ class Temporal_Attention_layer(nn.Block):
         '''
         _, num_of_vertices, num_of_features, num_of_timesteps = x.shape
 
-        # defer shape
-        self.U_1.shape = (num_of_vertices, )
-        self.U_2.shape = (num_of_features, num_of_vertices)
-        self.U_3.shape = (num_of_features, )
-        self.b_e.shape = (1, num_of_timesteps, num_of_timesteps)
-        self.V_e.shape = (num_of_timesteps, num_of_timesteps)
-        for param in [self.U_1, self.U_2, self.U_3, self.b_e, self.V_e]:
-            param._finish_deferred_init()
 
         # compute temporal attention scores
         # shape is (N, T, V)
-        lhs = nd.dot(nd.dot(x.transpose((0, 3, 2, 1)), self.U_1.data()),
-                     self.U_2.data())
+        lhs = torch.matmul(torch.matmul(x.permute(0, 3, 2, 1), self.U_1),
+                     self.U_2)
 
         # shape is (N, V, T)
-        rhs = nd.dot(self.U_3.data(), x.transpose((2, 0, 1, 3)))
+        rhs = torch.matmul(self.U_3, x.permute(2, 0, 1, 3))
 
-        product = nd.batch_dot(lhs, rhs)
+        product = torch.matmul(lhs, rhs)
 
-        E = nd.dot(self.V_e.data(),
-                   nd.sigmoid(product + self.b_e.data())
-                     .transpose((1, 2, 0))).transpose((2, 0, 1))
+        E = torch.matmul(self.V_e,
+                   F.sigmoid(product + self.b_e)
+                     .permute(1, 2, 0)).permute(2, 0, 1)
 
         # normailzation
-        E = E - nd.max(E, axis=1, keepdims=True)
-        exp = nd.exp(E)
-        E_normalized = exp / nd.sum(exp, axis=1, keepdims=True)
+        E = E - torch.max(E, axis=1, keepdims=True)
+        exp = torch.exp(E)
+        E_normalized = exp / torch.sum(exp, axis=1, keepdims=True)
         return E_normalized
 
 
@@ -264,8 +258,8 @@ class GWNet(nn.Module):
     @staticmethod
     def svd_init(apt_size, aptinit):
         m, p, n = torch.svd(aptinit)
-        nodevec1 = torch.mm(m[:, :apt_size], torch.diag(p[:apt_size] ** 0.5))
-        nodevec2 = torch.mm(torch.diag(p[:apt_size] ** 0.5), n[:, :apt_size].t())
+        nodevec1 = torch.matmul(m[:, :apt_size], torch.diag(p[:apt_size] ** 0.5))
+        nodevec2 = torch.matmul(torch.diag(p[:apt_size] ** 0.5), n[:, :apt_size].t())
         return nodevec1, nodevec2
 
     @classmethod
@@ -306,7 +300,7 @@ class GWNet(nn.Module):
         adjacency_matrices = self.fixed_supports
         # calculate the current adaptive adj matrix once per iteration
         if self.addaptadj:
-            adp = F.softmax(F.relu(torch.mm(self.nodevec1, self.nodevec2)), dim=1)
+            adp = F.softmax(F.relu(torch.matmul(self.nodevec1, self.nodevec2)), dim=1)
             adjacency_matrices = self.fixed_supports + [adp]
 
         # WaveNet layers
