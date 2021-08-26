@@ -196,6 +196,8 @@ class GWNet(nn.Module):
         self.addaptadj = addaptadj
         self.transformer_encoder = nn.TransformerEncoderLayer(d_model=207, nhead=3)
         self.temporal_attention = Temporal_Attention_layer(num_nodes,2, 13)
+        self.t_h = nn.Parameter(torch.randn(13))
+        self.h_x = nn.Parameter(torch.randn(13, 320, 207))
 
 
         if self.cat_feat_gc:
@@ -280,6 +282,7 @@ class GWNet(nn.Module):
     def forward(self, x):
         # Input shape is (bs, features, n_nodes, n_timesteps)
         # import pdb;pdb.set_trace()
+        tmp = torch.clone(x)
         in_len = x.size(3)
         if in_len < self.receptive_field:
             x = nn.functional.pad(x, (self.receptive_field - in_len, 0, 0, 0))
@@ -332,8 +335,7 @@ class GWNet(nn.Module):
             x = x + residual[:, :, :, -x.size(3):]  # TODO(SS): Mean/Max Pool?
             x = self.bn[i](x)
         x = F.relu(skip)  # ignore last X?
-        print(f"RRRRRRRRRRRRRRRRRRR====={x.shape}")
-        x = x + torch.unsqueeze(self.transformer_encoder(torch.squeeze(x,-1)),-1)
+        x = x + torch.einsum('nc,cva->nva', (self.temporal_attention(tmp) @ self.t_h, self.h_x)).contiguous() 
         x = F.relu(self.end_conv_1(x))
         x = self.end_conv_2(x)  # downsample to (bs, seq_length, 207, nfeatures)
         return x
