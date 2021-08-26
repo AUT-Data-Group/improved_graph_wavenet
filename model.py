@@ -195,7 +195,7 @@ class GWNet(nn.Module):
         self.cat_feat_gc = cat_feat_gc
         self.addaptadj = addaptadj
         self.transformer_encoder = nn.TransformerEncoderLayer(d_model=207, nhead=3)
-        self.temporal_attention = Temporal_Attention_layer(num_nodes,2, 12)
+        self.temporal_attention = Temporal_Attention_layer(num_nodes,2, 13)
 
 
         if self.cat_feat_gc:
@@ -279,7 +279,7 @@ class GWNet(nn.Module):
 
     def forward(self, x):
         # Input shape is (bs, features, n_nodes, n_timesteps)
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         in_len = x.size(3)
         if in_len < self.receptive_field:
             x = nn.functional.pad(x, (self.receptive_field - in_len, 0, 0, 0))
