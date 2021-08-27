@@ -139,7 +139,6 @@ class Temporal_Attention_layer(nn.Module):
         # rhs = (self.U_3 * x.permute(2, 0, 1, 3)).squeeze(0)
         rhs = torch.einsum('bnlv,v->bnl', (x.permute(2, 0, 1, 3).reshape(207, 64, 13, 2),self.U_3)).contiguous()
 
-        print(f"777777777777777777{lhs.shape}, {rhs.shape}")
         product = torch.matmul(lhs.reshape(64,13,207), rhs.reshape(64,207,13))
 
         E = torch.matmul(self.V_e,
