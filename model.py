@@ -132,16 +132,13 @@ class Temporal_Attention_layer(nn.Module):
 
         # compute temporal attention scores
         # shape is (N, T, V)
-        print(f"$$$$$$$$$$$$$$$${x.permute(0, 3, 2, 1).shape},&&&&&&&&{self.U_1.shape}^^^^^^^{self.U_2.shape}&&&&")
         lhs = torch.matmul(torch.matmul((x.permute(0, 3, 2, 1).reshape(x.permute(0, 3, 2, 1).size()[2],-1)).T, self.U_1).reshape(1,13,2),
                      self.U_2)
-        print(f"2222222$$$$$$$$$$$$$$$${lhs.shape}")
         # shape is (N, V, T)
         # rhs = torch.matmul(self.U_3, x.permute(2, 0, 1, 3))
         # rhs = (self.U_3 * x.permute(2, 0, 1, 3)).squeeze(0)
         rhs = torch.einsum('bnlv,v->bnl', (x.permute(2, 0, 1, 3).reshape(207, 1, 13, 2),self.U_3)).contiguous()
 
-        print(f"eeee$$$$$$$$$$$$$$$${rhs.shape}")
 
         product = torch.matmul(lhs, rhs.reshape(207,13))
 
@@ -338,6 +335,7 @@ class GWNet(nn.Module):
             x = x + residual[:, :, :, -x.size(3):]  # TODO(SS): Mean/Max Pool?
             x = self.bn[i](x)
         x = F.relu(skip)  # ignore last X?
+        print(f"777777777777777777{(self.temporal_attention(tmp) @ self.t_h).shape}ggggg{self.h_x.shape}")
         x = x + torch.einsum('nc,cva->nva', (self.temporal_attention(tmp) @ self.t_h, self.h_x)).contiguous() 
         x = F.relu(self.end_conv_1(x))
         x = self.end_conv_2(x)  # downsample to (bs, seq_length, 207, nfeatures)
