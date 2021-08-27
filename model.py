@@ -336,6 +336,7 @@ class GWNet(nn.Module):
             x = self.bn[i](x)
         x = F.relu(skip)  # ignore last X?
         print(f"777777777777777777{(self.temporal_attention(tmp) @ self.t_h).shape}ggggg{self.h_x.shape}")
+        print(f"99999999999999{(nsum('nc,cva->nva', (self.temporal_attention(tmp) @ self.t_h, self.h_x)).contiguous()).shape}ggggg{x.shape}")
         x = x + torch.einsum('nc,cva->nva', (self.temporal_attention(tmp) @ self.t_h, self.h_x)).contiguous() 
         x = F.relu(self.end_conv_1(x))
         x = self.end_conv_2(x)  # downsample to (bs, seq_length, 207, nfeatures)
