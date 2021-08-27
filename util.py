@@ -235,7 +235,7 @@ def make_graph_inputs(args, device):
 
 def get_shared_arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--device', type=str, default='cpu', help='')
+    parser.add_argument('--device', type=str, default='cuda:0', help='')
     parser.add_argument('--data', type=str, default='data/METR-LA', help='data path')
     parser.add_argument('--adjdata', type=str, default='data/sensor_graph/adj_mx.pkl',
                         help='adj data path')
@@ -250,7 +250,7 @@ def get_shared_arg_parser():
     parser.add_argument('--nhid', type=int, default=40, help='Number of channels for internal conv')
     parser.add_argument('--in_dim', type=int, default=2, help='inputs dimension')
     parser.add_argument('--num_nodes', type=int, default=207, help='number of nodes')
-    parser.add_argument('--batch_size', type=int, default=1, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=64, help='batch size')
     parser.add_argument('--dropout', type=float, default=0.3, help='dropout rate')
     parser.add_argument('--n_obs', default=None, help='Only use this many observations. For unit testing.')
     parser.add_argument('--apt_size', default=10, type=int)
