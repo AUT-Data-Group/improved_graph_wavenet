@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import BatchNorm2d, Conv1d, Conv2d, ModuleList, Parameter
 import torch.nn.functional as F
+import numpy as np
 
 class SpatialAttention(nn.Module):
     def __init__(self, num_of_timesteps, num_of_features, num_of_vertices):
