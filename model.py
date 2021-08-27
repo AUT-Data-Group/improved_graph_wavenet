@@ -140,7 +140,7 @@ class Temporal_Attention_layer(nn.Module):
         rhs = torch.einsum('bnlv,v->bnl', (x.permute(2, 0, 1, 3).reshape(207, 64, 13, 2),self.U_3)).contiguous()
 
 
-        product = torch.matmul(lhs, rhs.reshape(207,13))
+        product = torch.matmul(lhs, rhs.reshape(207,13,64))
 
         E = torch.matmul(self.V_e,
                    F.sigmoid(product + self.b_e)
