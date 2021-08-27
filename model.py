@@ -132,6 +132,7 @@ class Temporal_Attention_layer(nn.Module):
 
         # compute temporal attention scores
         # shape is (N, T, V)
+        print(f"$$$$$$$$$$$$$$$${x.permute(0, 3, 2, 1).shape},&&&&&&&&{self.U_1.shape}^^^^^^^{self.U_2.shape}")
         lhs = torch.matmul(torch.matmul(x.permute(0, 3, 2, 1), self.U_1),
                      self.U_2)
 
