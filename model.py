@@ -135,11 +135,11 @@ class Temporal_Attention_layer(nn.Module):
         print(f"$$$$$$$$$$$$$$$${x.permute(0, 3, 2, 1).shape},&&&&&&&&{self.U_1.shape}^^^^^^^{self.U_2.shape}&&&&")
         lhs = torch.matmul(torch.matmul((x.permute(0, 3, 2, 1).reshape(x.permute(0, 3, 2, 1).size()[2],-1)).T, self.U_1).reshape(1,13,2),
                      self.U_2)
-
+        print(f"2222222$$$$$$$$$$$$$$$${lhs.shape}")
         # shape is (N, V, T)
         # rhs = torch.matmul(self.U_3, x.permute(2, 0, 1, 3))
         # rhs = (self.U_3 * x.permute(2, 0, 1, 3)).squeeze(0)
-        rhs = torch.einsum('bnvl,v->bnl', (self.U_3, x.permute(2, 0, 1, 3))).contiguous()
+        rhs = torch.einsum('bnlv,v->bnl', (x.permute(2, 0, 1, 3),self.U_3)).contiguous()
 
 
 
