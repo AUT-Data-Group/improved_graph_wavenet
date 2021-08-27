@@ -197,7 +197,7 @@ class GWNet(nn.Module):
         self.transformer_encoder = nn.TransformerEncoderLayer(d_model=207, nhead=3)
         self.temporal_attention = Temporal_Attention_layer(num_nodes,2, 13)
         self.t_h = nn.Parameter(torch.empty((13))
-        stdv = 1.0 / np.sqrt(features)
+        stdv = 1.0 / np.sqrt(2)
         nn.init.uniform_(self.t_h, -stdv, stdv)
         self.h_x = nn.Parameter(torch.empty(13, 320, 207))
         nn.init.uniform_(self.h_x,-stdv, stdv)
