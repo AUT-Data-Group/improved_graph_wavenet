@@ -143,7 +143,7 @@ class Temporal_Attention_layer(nn.Module):
 
         print(f"eeee$$$$$$$$$$$$$$$${rhs.shape}")
 
-        product = torch.matmul(lhs, rhs)
+        product = torch.matmul(lhs, rhs.reshape(207,13))
 
         E = torch.matmul(self.V_e,
                    F.sigmoid(product + self.b_e)
