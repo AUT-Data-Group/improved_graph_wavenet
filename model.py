@@ -132,12 +132,12 @@ class Temporal_Attention_layer(nn.Module):
 
         # compute temporal attention scores
         # shape is (N, T, V)
-        lhs = torch.matmul(torch.matmul((x.permute(0, 3, 2, 1).reshape(x.permute(0, 3, 2, 1).size()[2],-1)).T, self.U_1).reshape(1,13,2),
+        lhs = torch.matmul(torch.matmul((x.permute(0, 3, 2, 1).reshape(x.permute(0, 3, 2, 1).size()[2],-1)).T, self.U_1).reshape(64,13,2),
                      self.U_2)
         # shape is (N, V, T)
         # rhs = torch.matmul(self.U_3, x.permute(2, 0, 1, 3))
         # rhs = (self.U_3 * x.permute(2, 0, 1, 3)).squeeze(0)
-        rhs = torch.einsum('bnlv,v->bnl', (x.permute(2, 0, 1, 3).reshape(207, 1, 13, 2),self.U_3)).contiguous()
+        rhs = torch.einsum('bnlv,v->bnl', (x.permute(2, 0, 1, 3).reshape(207, 64, 13, 2),self.U_3)).contiguous()
 
 
         product = torch.matmul(lhs, rhs.reshape(207,13))
